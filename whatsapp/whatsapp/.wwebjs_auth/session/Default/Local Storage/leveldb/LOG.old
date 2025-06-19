@@ -1,0 +1,6 @@
+2025/06/19-12:53:44.718 b303 Reusing MANIFEST /Users/rom.iluz/Dev/agno_sales_agent/agno/agno-sales-extension/whatsapp/whatsapp/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/06/19-12:53:44.719 b303 Recovering log #3
+2025/06/19-12:53:44.720 b303 Reusing old log /Users/rom.iluz/Dev/agno_sales_agent/agno/agno-sales-extension/whatsapp/whatsapp/.wwebjs_auth/session/Default/Local Storage/leveldb/000003.log 
+2025/06/19-13:04:07.171 15c03 Level-0 table #5: started
+2025/06/19-13:04:07.183 15c03 Level-0 table #5: 20273 bytes OK
+2025/06/19-13:04:07.206 15c03 Delete type=0 #3

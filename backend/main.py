@@ -919,8 +919,26 @@ async def preview_message(
                 previews_collection = db_manager.get_collection("message_previews")
                 previews_collection.insert_one(preview_data)
                 logger.info(f"✅ Stored preview {preview_id} in MongoDB")
+
+                # ALSO STORE CONTACT DATA (same as full workflow)
+                contacts_collection = db_manager.get_collection("contacts")
+                contact_doc = {
+                    "monday_item_id": request.monday_item_id,
+                    "board_id": request.board_id,
+                    "comprehensive_data": comprehensive_data,
+                    "last_updated": datetime.now().isoformat(),
+                    "data_source": "monday_api",
+                    "workflow_type": "preview"
+                }
+                contacts_collection.replace_one(
+                    {"monday_item_id": request.monday_item_id},
+                    contact_doc,
+                    upsert=True
+                )
+                logger.info(f"✅ Stored contact data for preview workflow: {request.monday_item_id}")
+
             except Exception as e:
-                logger.error(f"❌ Failed to store preview: {e}")
+                logger.error(f"❌ Failed to store preview/contact: {e}")
 
         return MessagePreviewResponse(
             preview_id=preview_id,

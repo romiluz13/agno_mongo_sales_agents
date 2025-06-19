@@ -1,0 +1,190 @@
+Quickstart Tutorial
+Suggest Edits
+This tutorial is a step-by-step guidance on implementing a specialized chatbot with RAG stack using embedding models (e.g., Voyage embeddings) and large language models (LLMs). We start with a brief overview of the retrieval augmented generation (RAG) stack. Then, we’ll briefly go through the preparation and vectorization of data (i.e. embeddings). We’ll show how to do retrieval with embeddings as well as some additional refinements with rerankers. Finally, we’ll put this all together to create a simple RAG chatbot.
+
+Brief overview of the RAG stack
+A typical RAG stack is illustrated in Figure 1. When presented with a search query, our initial step involves employing the embedding model, such as Voyage embeddings, to derive the vector representation of the query. Subsequently, we conduct a document search, identifying the most relevant documents from a vector store The most relevant document is then selected and combined with the original query. This composite input is then submitted to a generative model to generate a comprehensive response to the query. This RAG stack can be further refined with reranking, which we’ll discuss in a later section.
+
+Figure 1: Typical RAG stack
+Figure 1: Typical RAG stack
+
+Prepare data
+You will need a corpus of documents that your chatbot will specialize in. You can choose to save your documents as demonstrated below or use the following set of documents as a starting point.
+
+Python
+
+documents = [
+    "The Mediterranean diet emphasizes fish, olive oil, and vegetables, believed to reduce chronic diseases.",
+    "Photosynthesis in plants converts light energy into glucose and produces essential oxygen.",
+    "20th-century innovations, from radios to smartphones, centered on electronic advancements.",
+    "Rivers provide water, irrigation, and habitat for aquatic species, vital for ecosystems.",
+    "Apple’s conference call to discuss fourth fiscal quarter results and business updates is scheduled for Thursday, November 2, 2023 at 2:00 p.m. PT / 5:00 p.m. ET.",
+    "Shakespeare's works, like 'Hamlet' and 'A Midsummer Night's Dream,' endure in literature."
+]
+We have additional examples available in this link for you to download and test.
+
+Vectorize/embed the documents
+First, follow the installation guide to install the Voyage Python package and get your API key. Then, we can use the Python client to create embeddings.
+
+Embed a small number of documents
+Embed a large number of documents
+
+import voyageai
+
+vo = voyageai.Client()
+# This will automatically use the environment variable VOYAGE_API_KEY.
+# Alternatively, you can use vo = voyageai.Client(api_key="<your secret key>")
+
+# Embed the documents
+documents_embeddings = vo.embed(
+    documents, model="voyage-3.5", input_type="document"
+).embeddings
+Notes on Tokenization
+A minimalist retrieval system
+The main feature of the embeddings is that the cosine similarity between two embeddings captures the semantic relatedness of the corresponding original passages. This allows us to use the embeddings to do semantic retrieval / search.
+
+Suppose the user sends a "query" (e.g., a question or a comment) to the chatbot:
+
+Python
+
+query = "When is Apple's conference call scheduled?"
+To find out the document that is most similar to the query among the existing data, we can first embed/vectorize the query:
+
+Python
+
+# Get the embedding of the query
+query_embedding = vo.embed([query], model="voyage-3.5", input_type="query").embeddings[0]
+Nearest neighbor Search: We can find the closest embedding among the documents based on the cosine similarity, and retrieve the corresponding document.
+
+Python
+
+# Compute the similarity
+# Voyage embeddings are normalized to length 1, therefore dot-product and cosine 
+# similarity are the same.
+similarities = np.dot(doc_embds, query_embd)
+
+retrieved_id = np.argmax(similarities)
+print(documents[retrieved_id])
+k-nearest neighbors Search (k-NN): It is often useful to retrieve not only the closest document but also the k most closest documents. We can use any k_nearest_neighbors search algorithm to achieve this goal.
+
+Python
+
+# Use the k-nearest neighbor algorithm to identify the top-k documents with the highest similarity
+retrieved_embds, retrieved_embd_indices = k_nearest_neighbors(
+    query_embedding, documents_embeddings, k=3
+)
+retrieved_docs = [documents[index] for index in retrieved_embd_indices]
+Notes on Cosine Similarity, Nearest Neighbor Search, and Vector Database
+Refinement with rerankers
+We can further refine our embedding-based retrieval with rerankers. The refined RAG stack with a reranker is illustrated in Figure 2. Here, the retrieved documents from the vector store are subsequently passed to a reranker, which then reranks the documents for semantic relevance against the query and produces a more relevant and smaller set of documents for inputting to the generative model.
+
+Figure 2: RAG stack with reranker 
+Figure 2: RAG stack with reranker
+
+Below, we send initially retrieved documents to the reranker to obtain the top-3 most relevant documents.
+
+Python
+
+# Reranking
+documents_reranked = vo.rerank(query, documents, model="rerank-2", top_k=3)
+We see that the reranker properly ranks the Apple conference call document as the most relevant to the query.
+
+Python
+
+for r in documents_reranked.results:
+    print(f"Document: {r.document}")
+    print(f"Relevance Score: {r.relevance_score}")
+    print(f"Index: {r.index}")
+    print()
+Output:
+
+Text
+
+Document: Apple’s conference call to discuss fourth fiscal quarter results and business updates is scheduled for Thursday, November 2, 2023 at 2:00 p.m. PT / 5:00 p.m. ET.
+Relevance Score: 0.9296875
+Index: 4
+
+
+Document: The Mediterranean diet emphasizes fish, olive oil, and vegetables, believed to reduce chronic diseases.
+Relevance Score: 0.40625
+Index: 0
+
+
+Document: Photosynthesis in plants converts light energy into glucose and produces essential oxygen.
+Relevance Score: 0.39453125
+Index: 1
+A minimalist RAG chatbot
+The Retrieval-Augmented Generation (RAG) chatbot represents a cutting-edge approach in conversational artificial intelligence. RAG combines the powers of retrieval-based and generative methods to produce more accurate and contextually relevant responses. RAG can leverage a large corpora of text to retrieve relevant documents and then send those documents to language models, such as Claude or GPT, to generate replies. This methodology ensures that the chatbot's answers are both informed by vast amounts of information and tailored to the specifics of the user's query.
+
+Suppose you have implemented a semantic search system as described in the previous section---either with or without a reranker. As a result of the search process, you have retrieved the most relevant document, referred to as retrieved_doc. We can craft a prompt with this context which we can use as input to the language model.
+
+Python
+
+# Take the retrieved document and use it as a prompt for the text generation model
+prompt = f"Based on the information: '{retrieved_doc}', generate a response of {query}"
+Now you can utilize a text generation model like Claude 3.5 Sonnet to craft a response based on the provided query and the retrieved document.
+
+Install the anthropic package first:
+
+Shell
+
+pip install anthropic
+Then run the following code:
+
+Python
+
+import anthropic
+
+# Initialize Anthropic API
+client = anthropic.Anthropic(api_key="YOUR ANTHROPIC API KEY")
+
+message = client.messages.create(
+    model="claude-3-5-sonnet-20240620",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": prompt}
+    ]
+)
+
+print(message.content[0].text)
+Output:
+
+
+Apple's conference call is scheduled for Thursday, November 2, 2023 at 2:00 p.m. PT / 5:00 p.m. ET.
+Output without using Voyage retrieved documents
+
+
+I don't have information about a specific upcoming Apple conference call. Apple typically holds quarterly earnings conference calls, but without a more precise timeframe or context, I can't provide the exact date of their next scheduled call. For the most up-to-date information on Apple's upcoming conference calls or earnings releases, you should check Apple's investor relations website or contact their investor relations department directly.
+You can do the same with GPT-4o as well. Install the openai package first:
+
+Shell
+
+pip install openai
+Then run the following code:
+
+Python
+
+from openai import OpenAI
+
+# Initialize OpenAI client
+client = OpenAI(api_key="YOUR OPENAI API KEY")
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": prompt},
+    ],
+)
+
+print(response.choices[0].message.content)
+Output:
+
+Text
+
+Apple's conference call is scheduled for Thursday, November 2, 2023 at 2:00 p.m. PT / 5:00 p.m. ET.
+Output without using Voyage retrieved documents:
+
+Text
+
+Apple's conference calls are typically scheduled to discuss quarterly earnings. They usually announce these dates a few weeks in advance. For the specific date and time of the next Apple conference call, I recommend checking Apple's Investor Relations website or recent press releases, as they will have the most accurate and up-to-date information. If you're looking for the scheduled call for a specific quarter, these events usually occur a few weeks after the end of a fiscal quarter, with Apple's fiscal year ending on the last Saturday of September.

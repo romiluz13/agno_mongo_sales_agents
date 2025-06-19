@@ -959,22 +959,33 @@ class MondayIntegration {
 
     async processLeadWithMongoDB(row, button, index) {
         try {
+            console.log('🗄️ Starting MongoDB-powered workflow...');
+
             // Extract Monday.com identifiers
             const mondayData = this.extractMondayItemId(row);
+
+            // Check if extraction failed
+            if (!mondayData) {
+                console.error('❌ CRITICAL: Failed to extract Monday.com identifiers');
+                this.showError(button, 'Cannot extract Monday.com item ID. Please ensure you are on a Monday.com board page with valid items.');
+                return;
+            }
+
             mondayData.row_index = index;
             console.log('🆔 Extracted Monday.com data:', mondayData);
 
             // Validate Monday.com data
             const validation = this.validateMondayData(mondayData);
             if (!validation.isValid) {
+                console.error('❌ Monday.com data validation failed:', validation.errors);
                 this.showError(button, `Validation failed: ${validation.errors.join(', ')}`);
                 return;
             }
 
-            // Show processing state with progress
+            // Show processing state
             this.showProcessing(button, `Generating preview for ${mondayData.fallback_name}...`, 0);
 
-            // NEW: Generate message preview first
+            // Create preview request for MongoDB workflow
             const previewRequest = {
                 monday_item_id: mondayData.monday_item_id,
                 board_id: mondayData.board_id,
@@ -1133,8 +1144,13 @@ class MondayIntegration {
 
     transformLeadDataForAPI(leadData) {
         // Transform extracted lead data to match backend API LeadProcessRequest format
+        // NOTE: Only use real Monday.com IDs, don't generate fake ones
+        const lead_id = leadData.monday_id && /^\d+$/.test(leadData.monday_id)
+            ? leadData.monday_id
+            : `demo_${Date.now()}`; // Use demo_ prefix for clearly fake IDs
+
         return {
-            lead_id: leadData.monday_id || `agno_${Date.now()}`,
+            lead_id: lead_id,
             lead_name: leadData.name || 'Unknown Lead',
             company: leadData.company || 'Unknown Company',
             title: leadData.title || 'Unknown Title',
@@ -1317,7 +1333,8 @@ class MondayIntegration {
     getMondayItemIdEnhanced(row) {
         // First try existing DOM-based strategies
         const domId = this.getMondayItemId(row);
-        if (domId && !domId.startsWith('agno_')) {
+        if (domId && !domId.startsWith('agno_') && /^\d+$/.test(domId)) {
+            console.log('✅ Found valid Monday.com item ID from DOM:', domId);
             return domId;
         }
 
@@ -1330,8 +1347,79 @@ class MondayIntegration {
             return itemId;
         }
 
-        console.warn('⚠️ Could not extract Monday.com item ID from DOM or URL');
-        return domId; // Return fallback ID if nothing else works
+        // Enhanced DOM extraction strategies for board view
+        const enhancedStrategies = [
+            // Strategy 1: Look for data attributes in row or parent elements
+            () => {
+                let element = row;
+                while (element && element !== document.body) {
+                    const attrs = ['data-item-id', 'data-pulse-id', 'data-row-id', 'data-id'];
+                    for (const attr of attrs) {
+                        const value = element.getAttribute(attr);
+                        if (value && /^\d+$/.test(value)) {
+                            console.log(`✅ Found item ID via ${attr}:`, value);
+                            return value;
+                        }
+                    }
+                    element = element.parentElement;
+                }
+                return null;
+            },
+
+            // Strategy 2: Look for item ID in onclick handlers or href attributes
+            () => {
+                const clickableElements = row.querySelectorAll('a, button, [onclick]');
+                for (const el of clickableElements) {
+                    const href = el.getAttribute('href') || '';
+                    const onclick = el.getAttribute('onclick') || '';
+                    const combined = href + onclick;
+
+                    const idMatch = combined.match(/(?:item|pulse|row)(?:_id|Id|ID)?[=:]\s*(\d+)/);
+                    if (idMatch) {
+                        console.log('✅ Found item ID in clickable element:', idMatch[1]);
+                        return idMatch[1];
+                    }
+                }
+                return null;
+            },
+
+            // Strategy 3: Look for item ID in class names or IDs
+            () => {
+                const allElements = [row, ...row.querySelectorAll('*')];
+                for (const el of allElements) {
+                    const className = el.className || '';
+                    const id = el.id || '';
+                    const combined = className + ' ' + id;
+
+                    const idMatch = combined.match(/(?:item|pulse|row)[-_]?(\d{8,})/);
+                    if (idMatch) {
+                        console.log('✅ Found item ID in class/id:', idMatch[1]);
+                        return idMatch[1];
+                    }
+                }
+                return null;
+            }
+        ];
+
+        // Try enhanced strategies
+        for (let i = 0; i < enhancedStrategies.length; i++) {
+            try {
+                const id = enhancedStrategies[i]();
+                if (id && /^\d+$/.test(id)) {
+                    console.log(`✅ Enhanced strategy ${i + 1} found item ID:`, id);
+                    return id;
+                }
+            } catch (error) {
+                console.warn(`⚠️ Enhanced strategy ${i + 1} failed:`, error);
+            }
+        }
+
+        console.error('❌ CRITICAL: Could not extract real Monday.com item ID');
+        console.error('❌ This will cause the workflow to fail with placeholder data');
+        console.error('❌ Row HTML:', row.outerHTML.substring(0, 500) + '...');
+
+        // DO NOT return fake ID - return null to indicate failure
+        return null;
     }
 
     extractMondayItemId(row) {
@@ -1341,7 +1429,18 @@ class MondayIntegration {
         const monday_item_id = this.getMondayItemIdEnhanced(row);
         const board_id = this.getBoardIdFromUrl();
 
-        // Get cells for fallback data extraction
+        // CRITICAL: If we can't extract real IDs, don't proceed
+        if (!monday_item_id || !board_id) {
+            console.error('❌ CRITICAL: Cannot extract real Monday.com identifiers');
+            console.error('❌ Item ID:', monday_item_id);
+            console.error('❌ Board ID:', board_id);
+            console.error('❌ This will cause the workflow to fail');
+
+            // Return null to indicate failure - don't create fake data
+            return null;
+        }
+
+        // Get cells for fallback data extraction (for UI display only)
         const cells = this.getAllRowCells(row);
 
         // Keep minimal fallback data for UI display
@@ -1355,7 +1454,7 @@ class MondayIntegration {
             fallback_company: fallback_company || 'Unknown Company'
         };
 
-        console.log('🆔 Extracted Monday.com data:', mondayData);
+        console.log('✅ Successfully extracted Monday.com data:', mondayData);
         return mondayData;
     }
 
@@ -1369,6 +1468,9 @@ class MondayIntegration {
         } else if (!/^\d+$/.test(data.monday_item_id)) {
             errors.push('Invalid Monday.com item ID format - must be numeric');
             return { isValid: false, errors };
+        } else if (data.monday_item_id.startsWith('agno_')) {
+            errors.push('Fake Monday.com item ID detected - real ID extraction failed');
+            return { isValid: false, errors };
         }
 
         if (!data.board_id) {
@@ -1381,8 +1483,11 @@ class MondayIntegration {
 
         if (isValid) {
             console.log('✅ Monday.com data validation passed');
+            console.log(`✅ Using real Monday.com item ID: ${data.monday_item_id}`);
         } else {
-            console.warn('⚠️ Monday.com data validation failed:', errors);
+            console.error('❌ Monday.com data validation failed:', errors);
+            console.error('❌ This indicates the Chrome extension cannot extract real Monday.com item IDs');
+            console.error('❌ The workflow will fail and store placeholder data');
         }
 
         return {
