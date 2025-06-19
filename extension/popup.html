@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agno Sales Agent</title>
+    <style>
+        body {
+            width: 380px;
+            min-height: 500px;
+            padding: 0;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            margin: 0;
+            padding: 20px;
+            border-radius: 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .header h2 {
+            margin: 0;
+            color: #667eea;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .status-section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: "📊";
+            margin-right: 8px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #e9ecef;
+        }
+
+        .status-label {
+            font-size: 13px;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #e9ecef;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-testing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .config-section {
+            margin-bottom: 25px;
+        }
+
+        .config-section .section-title::before {
+            content: "⚙️";
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            color: #495057;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 13px;
+            box-sizing: border-box;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #212529;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .actions-section .section-title::before {
+            content: "🚀";
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .notification.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .notification.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🤖 Agno Sales Agent</h2>
+            <p>AI-powered sales automation for Monday.com</p>
+        </div>
+
+        <div id="notification" class="notification"></div>
+
+        <div class="status-section">
+            <div class="section-title">Connection Status</div>
+            <div class="status-item">
+                <span class="status-label">Backend API:</span>
+                <span id="backend-status" class="status-indicator status-disconnected">❌ Not Connected</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Monday.com API:</span>
+                <span id="monday-status" class="status-indicator status-disconnected">❌ Not Connected</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">WhatsApp:</span>
+                <span id="whatsapp-status" class="status-indicator status-disconnected">❌ Not Connected</span>
+            </div>
+        </div>
+
+        <div class="config-section">
+            <div class="section-title">Configuration</div>
+            <div class="input-group">
+                <label for="monday-token">Monday.com API Token:</label>
+                <input type="password" id="monday-token" placeholder="Enter your Monday.com API token">
+            </div>
+            <div class="input-group">
+                <label for="board-id">Board ID:</label>
+                <input type="text" id="board-id" placeholder="Enter your Monday.com board ID">
+            </div>
+            <div class="input-group">
+                <label for="tavily-key">Tavily API Key:</label>
+                <input type="password" id="tavily-key" placeholder="Enter your Tavily API key">
+            </div>
+            <button id="save-config" class="btn btn-primary">💾 Save Configuration</button>
+        </div>
+
+        <div class="actions-section">
+            <div class="section-title">Actions</div>
+            <button id="test-connection" class="btn btn-primary">🔍 Test All Connections</button>
+            <button id="connect-whatsapp" class="btn btn-success">📱 Connect WhatsApp</button>
+            <button id="open-monday" class="btn btn-warning">📋 Open Monday.com</button>
+        </div>
+
+        <div class="footer">
+            <p>Powered by Agno Framework & MongoDB</p>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
